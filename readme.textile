@@ -1,0 +1,50 @@
+h1. Plupload S3 mixin for Django
+
+Use this together with Plupload to upload files into your S3
+
+h2. Dependencies
+
+django-mediagenerator - https://bitbucket.org/wkornewald/django-mediagenerator/src - this can be easily altered to suit your needs
+djangotoolbox - https://bitbucket.org/wkornewald/djangotoolbox - for JSONResponse. This can be easily altered if you don't want to install djangotoolbox
+appengine-urlfetch - This was built for use in AppEngine however can be easily changed to use urllib
+
+
+h2. Signals
+
+S3policy sends 's3policy_request' signal to allow your application to check for permissions for the upload. So for example, you could do add:
+<code>
+def s3policy_request_callback(sender, prefix, **kwargs):
+	if not request.user.is_admin():
+		raise ValueError('You do not have permission to upload here.')
+
+s3mixin.s3policy_request.connect(s3policy_request_callback)
+</code>
+
+h2. Installation
+
+# Add in your urls.py in 'urlpatterns' array:
+<code>url(r'^portfolio/(?P<prefix>[^\.^/]+)/(?P<type>[^\.^/]+)/s3policy/$', 's3mixin.s3policy', {}, name='s3policy' ),</code>
+Prefix parameter may be used by the s3polciy_request signal to ensure user has permission to upload to a specific path/model.
+# In your template, make sure to include
+<code>
+<script type="text/javascript" src="{% media_url 'js/plupload/plupload.full.min.js' %}"></script>
+<script type="text/javascript" src="{% media_url 'plupload-s3.js' %}"></script>
+</code>
+# In your settings.py add:
+<code>
+AWS_ACCESS_KEY_ID = ''
+AWS_SECRET_ACCESS_KEY = ''
+AWS_MAX_FILE_SIZE = 10485760 # 10MB
+AWS_BUCKET = 'dev-bucket' if not on_production_server else 'prod-bucket'
+AWS_PREFIX = 'http://%s.s3.amazonaws.com/' % (AWS_BUCKET)
+AWS_CLOUDFRONT = 'http://%s.my-cloudfront.com/' % AWS_BUCKET # Your CNAME for Cloudfront
+</code>
+# Inside models.py you might want to change the path to plupload SWF file
+
+h2. Comments
+
+# Notice that the code has <code>resize : {width : 1920, height : 1080, quality : 90}</code> which means that all uploaded JPG/PNG will be resized if larger than 1920x1080. This seems reasonable with our current global standards.
+# S3Mixin has SERVER_TYPES attribute which allows setting file types which you might want to store on the server side (to allow reading the file directly from DB and not through S3). Currently it's set to HTML files. You might want to change this.
+# Currently only the Flash runtime of Plupload is being used in order to keep things consistent and stable. S3 requires cross-domain upload and passing multi-part consistently in order to match the signature. Some of the runtimes are not passing the same parameters exactly as the Flash runtime and might require some tweaking in order to work.
+# Files are uploaded with some 'id' prefix which you should provide to S3FileWidget (for example, the parent model id) and a timestamp for cache busting. S3 uploads
+# Feel free to fork and help to turn this into a pluggable app which is generic enough
