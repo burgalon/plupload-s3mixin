@@ -26,7 +26,9 @@ from django.conf import settings
 from mediagenerator.utils import media_url
 from djangotoolbox.http import JSONResponse
 
-s3policy_request = django.dispatch.Signal(providing_args=['prefix'])
+import S3
+import utilmodels
+
 SUPPORTED_FORMATS = 'jpg,png,gif,css,html,js,pdf,swf,ico,mp3'
 
 class S3FileWidget(forms.HiddenInput):
@@ -35,9 +37,8 @@ class S3FileWidget(forms.HiddenInput):
     class Meta:
         abstract = True
 
-    def __init__(self, prefix, type, auto_upload=False, required=True, allowed_types=SUPPORTED_FORMATS, *args, **kwargs):
+    def __init__(self, prefix, auto_upload=False, required=True, allowed_types=SUPPORTED_FORMATS, *args, **kwargs):
         self.prefix = prefix
-        self.type = type
         self.auto_upload = auto_upload
         self.required = required
         self.allowed_types = allowed_types
@@ -91,9 +92,9 @@ class S3FileWidget(forms.HiddenInput):
                 uploader.bind('FileUploaded', onPluploadFileUploaded);
                 '''
                 % {
-                    'signature_url': reverse('s3policy', args=[self.prefix, self.type]),
+                    'signature_url': reverse('s3policy', args=[self.prefix]),
                    # swf: '%ss3_upload.swf',
-                    'swf_url': media_url('js/plupload/plupload.flash.swf'),
+                    'swf_url': media_url('plupload/plupload.flash.swf'),
                    # $('#%s').val('');
                     'id': self.attrs['id'],
                     # /* auto_upload */
@@ -113,8 +114,7 @@ class S3Mixin(models.Model):
     """
 #    file = models.URLField(null=True, verify_exists=False, max_length=1000)
     file = models.CharField(null=True, max_length=300)
-    file_thumb = models.CharField(null=True, max_length=300) # TODO: DEPRECATE
-    file_data = models.TextField(null=True)
+    file_data = models.TextField(null=True, editable=False)
 
     # Default types to be saved on the server side and not on S3
     SERVER_TYPES = ('.html', '.htm', '.css')
@@ -324,76 +324,3 @@ class S3Mixin(models.Model):
                 return 'No Thumbnail'
         except Exception,e:
             logging.exception(e)
-
-def s3policy(request, prefix, type):
-    error_msg = ''
-    try:
-        s3policy_request.send(sender=request, prefix=prefix)
-    except ValueError,e:
-        error_msg= e
-    acl = 'public-read'
-    # TODO: Amazon time difference is strange - investigate
-    filename = request.GET['filename']
-    extension = os.path.splitext(os.path.basename(filename))[1].lower()
-    if extension[1:] not in SUPPORTED_FORMATS.split(','):
-        error_msg = 'Filetype %s (%s) is not allowed' % (extension, filename)
-    content_type = mimetypes.guess_type(filename)[0]
-    if not content_type:
-        content_type = 'application/octet-stream'
-    big_content_type = content_type.partition('/')[0]
-    file_size = int(request.GET.get('file_size', 10))
-#        if big_content_type=='image' and file_size>1048576:
-#            error_msg = '%s is too large. Max size image 1MB.' % (filename)
-#    if file_size>10485760:
-#        error_msg = '%s is too large. Max size 10MB.' % (filename)
-    # Test for max file size
-    if not file_size:
-        error_msg = 'File size is zero'
-    if file_size > settings.AWS_MAX_FILE_SIZE:
-        error_msg = 'Selected file is too large (max is %dMB)' % (settings.AWS_MAX_FILE_SIZE / 1024 / 1024)
-
-    if error_msg:
-        logging.info('s3policy error %s' % error_msg)
-        return JSONResponse({'errorMessage':error_msg})
-
-    #expires = rfc822.formatdate(time.mktime((datetime.datetime.now() + datetime.timedelta(days=360)).timetuple())),
-    key = '%s/%s/%s' % (prefix, time.time(), filename)
-    expiration_date = time.strftime('%Y-%m-%dT%H:%M:%S.000Z', time.gmtime(time.time()+30000))
-    policy_document = simplejson.dumps({"expiration": expiration_date,
-                  "conditions": [
-                    {"bucket": settings.AWS_BUCKET},
-                    {"acl": acl},
-                    {"key": key},
-                    {"Cache-Control": "public, max-age=2629743"},
-                    {"Filename": filename},
-                    {"name": filename},
-                    {"Content-Type": content_type},
-                    ["eq", "$success_action_status", "201"],
-                  ]
-                })
-    policy = base64.b64encode(policy_document.encode('utf-8'))
-    signature = base64.b64encode(hmac.new(settings.AWS_SECRET_ACCESS_KEY, policy, sha).digest())
-
-    response = {
-        'policy': policy,
-        'signature': signature,
-        'AWSAccessKeyId': settings.AWS_ACCESS_KEY_ID,
-        'Cache-Control': 'public, max-age=2629743',
-        'Content-Type': content_type,
-        'acl': acl,
-        'key': key,
-        'success_action_status': '201'
-    }
-
-    # Needed when resizing since Flash advancedUpload does not send this and S3 policy fails
-    if filename.lower().endswith('jpg') or filename.lower().endswith('png'):
-        response['Filename'] = filename
-
-    return JSONResponse(response)
-
-# TODO: some circular imports here...
-# Local import
-import S3
-from django.conf import settings
-import utilmodels
-import thumb
