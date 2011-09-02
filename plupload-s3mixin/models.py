@@ -27,93 +27,16 @@ from mediagenerator.utils import media_url
 from djangotoolbox.http import JSONResponse
 
 import S3
-import utilmodels
+import utils
 
 SUPPORTED_FORMATS = 'jpg,png,gif,css,html,js,pdf,swf,ico,mp3'
-
-class S3FileWidget(forms.HiddenInput):
-    is_hidden = False
-
-    class Meta:
-        abstract = True
-
-    def __init__(self, prefix, auto_upload=False, required=True, allowed_types=SUPPORTED_FORMATS, *args, **kwargs):
-        self.prefix = prefix
-        self.auto_upload = auto_upload
-        self.required = required
-        self.allowed_types = allowed_types
-        super(forms.HiddenInput, self).__init__(*args, **kwargs)
-
-    def render(self, name, value, attrs=None):
-        # save parameter for later use by inline()
-        self.attrs['id'] = attrs['id']
-        self.name = name
-        output = super(S3FileWidget, self).render(name, value, attrs)
-        if value:
-            link = '<a class="new-window" href="%s">%s</a>' % (value, os.path.basename(value))
-            output += mark_safe(u'''
-                <div id="%s_preview">
-                    %s
-                </div>''' % (attrs['id'],
-                            link,
-                            ))
-        return output + mark_safe(u'''
-            <div id="%(id)s-container" class="upload-container"><a href="#" id="%(id)s-upload">Select File</a></div>
-            <div id="%(id)s-filelist"></div>''' %
-            {'id': self.attrs['id']})
-
-    def javascript(self):
-        return mark_safe(u'''
-                var uploader =  new plupload.Uploader({
-                    runtimes : 'flash',
-                    use_query_string: false,
-                    multipart: true,
-                    url: '%(aws_prefix)s',
-                    multi_selection: true,
-                    form: $('#%(id)s').closest('form'),
-                    signature_url: '%(signature_url)s',
-                    browse_button : '%(id)s-upload',
-                    container : '%(id)s-container',
-                    filelistelement: $('#%(id)s-filelist'),
-                    max_file_size : '%(max_file_size)s',
-                    flash_swf_url : '%(swf_url)s',
-                    file_data_name: 'file',
-                    file_input_name: '%(name)s',
-                    filters : [
-                        {title : "Supported files (%(allowed_types)s)", extensions : "%(allowed_types)s"}
-                    ],
-		            resize : {width : 1920, height : 1080, quality : 90}
-                });
-                uploader.init();
-                uploader.bind('FilesAdded', onPluploadFilesAdded);
-                uploader.bind('UploadFile', onPluploadUploadFile);
-                uploader.bind('UploadProgress', onPluploadUploadProgress);
-                uploader.bind('Error', onPluploadError);
-                uploader.bind('FileUploaded', onPluploadFileUploaded);
-                '''
-                % {
-                    'signature_url': reverse('s3policy', args=[self.prefix]),
-                   # swf: '%ss3_upload.swf',
-                    'swf_url': media_url('plupload/plupload.flash.swf'),
-                   # $('#%s').val('');
-                    'id': self.attrs['id'],
-                    # /* auto_upload */
-                    'auto_upload': 'true' if self.auto_upload else 'false',
-                   # document.getElementById('%s').value='%s' + '%s' + filename;
-                    'aws_prefix': settings.AWS_PREFIX,
-                   # document.getElementById('%s').value='%s' + '%s' + filename;
-                    'prefix': '%s/%s/' % (self.prefix, time.time()),
-                    'name': self.name,
-                    'allowed_types': self.allowed_types,
-                    'max_file_size': settings.AWS_MAX_FILE_SIZE,
-                   } )
 
 class S3Mixin(models.Model):
     """A mixin class that gives thumbnail services for files uploaded to Amazon S3
     Also on delete it will delete the object from S3
     """
-#    file = models.URLField(null=True, verify_exists=False, max_length=1000)
-    file = models.CharField(null=True, max_length=300)
+    file = models.URLField(null=True, blank=True, verify_exists=False, max_length=1000)
+#    file = models.CharField(null=True, max_length=300)
     file_data = models.TextField(null=True, editable=False)
 
     # Default types to be saved on the server side and not on S3
@@ -236,7 +159,7 @@ class S3Mixin(models.Model):
     def save(self, suppressFileDelete=False):
         """ Helper services before save
         """
-        if self.pk:
+        if self.pk and not suppressFileDelete:
             prev_entity = get_object_or_404(type(self), pk=self.pk)
             prev_file = prev_entity.file
         else:
@@ -299,7 +222,7 @@ class S3Mixin(models.Model):
         try:
             file = self.get_file()
             params = {'file': file, 'name': self.name}
-            return utilmodels.get_render_string_by_extension(file, params, False)
+            return utils.get_render_string_by_extension(file, params, False)
         except Exception,e:
             logging.exception(e)
 
@@ -307,7 +230,7 @@ class S3Mixin(models.Model):
         try:
             file = self.get_file()
             if file:
-                return utilmodels.get_render_string_by_extension(file, {'file':file, 'name': self.name}, True)
+                return utils.get_render_string_by_extension(file, {'file':file, 'name': self.name}, True)
             elif self.file_data:
                 return mark_safe(self.file_data)
             else:
@@ -319,7 +242,7 @@ class S3Mixin(models.Model):
         try:
             file = self.get_file_thumb()
             if file:
-                return utilmodels.get_render_string_by_extension(file, {'file': file, 'name':self.name}, True)
+                return utils.get_render_string_by_extension(file, {'file': file, 'name':self.name}, True)
             else:
                 return 'No Thumbnail'
         except Exception,e:

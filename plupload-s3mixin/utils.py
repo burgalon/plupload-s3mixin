@@ -1,20 +1,10 @@
 # Python imports
 import mimetypes
 import os
-import functools
-
-# AppEngine imports
 
 # Django imports
-from django.http import HttpResponseServerError
-from django.template import Context, Template, RequestContext
-from django.http import HttpResponse
 from django.forms.util import flatatt
 from django.utils.safestring import mark_safe
-from django.utils import simplejson
-from django.core.signals import request_finished
-
-# Local imports
 
 # Constants
 RENDER_MIMES = {
@@ -27,7 +17,7 @@ RENDER_MIMES = {
                                     </script>
                                     ''',
                 # DEFAULT
-                '*': '<a %(attrs)s href="%(file)s">%(name)s</a>', 
+                '*': '<a %(attrs)s href="%(file)s">%(name)s</a>',
                 }
 
 VISIBLE_MIMES = ('image', '*')
@@ -35,7 +25,7 @@ VISIBLE_MIMES = ('image', '*')
 def get_render_string_by_extension(file_name, params, only_visibles=False):
     """
         renders an HTML tag appropriate for the given file
-        
+
         only_visibles avoids rendering non displayable types like javascript/css while keep displaying swfs/images
         attributes is the HTML attributes of the element
     """
@@ -57,13 +47,13 @@ def get_render_string(mime_type, params, only_visibles=False):
                 break
         else: # Not found... we're not sure how to render this mime_type, so we'll just use the default
             render_mime_type = '*'
-            
+
     # Add class attribute to 'visible' mimes
     if only_visibles:
         if render_mime_type=='*':
             c = mime_type.partition('/')[0]
-        else: 
-            c = render_mime_type.partition('/')[0] if '/' in render_mime_type else render_mime_type 
+        else:
+            c = render_mime_type.partition('/')[0] if '/' in render_mime_type else render_mime_type
         if 'class' in attrs:
             if c not in attrs['class']:
                 attrs['class'] += ' ' + c

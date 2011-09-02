@@ -8,32 +8,33 @@ django-mediagenerator - https://bitbucket.org/wkornewald/django-mediagenerator/s
 djangotoolbox - https://bitbucket.org/wkornewald/djangotoolbox - for JSONResponse. This can be easily altered if you don't want to install djangotoolbox
 appengine-urlfetch - This was built for use in AppEngine however can be easily changed to use urllib
 
-
-h2. Signals
-
-S3policy sends 's3policy_request' signal to allow your application to check for permissions for the upload. So for example, you could do add:
-<code>
-def s3policy_request_callback(sender, prefix, **kwargs):
-	if not request.user.is_admin():
-		raise ValueError('You do not have permission to upload here.')
-
-s3mixin.s3policy_request.connect(s3policy_request_callback)
-</code>
-
 h2. Installation
 
 # Change your model to inherit from s3mixin.models.S3Mixin instead of django.Model
 
 # Add in your urls.py in 'urlpatterns' array:
-<code>url(r'^model_name/(?P<prefix>[^\.^/]+)/s3policy/$', 's3mixin.s3policy', {}, name='s3policy' ),</code>
-Prefix is a foreign key to which the file belongs to.
-Prefix parameter will be added to the upload path. You might want to wrap s3policy with your own s3policy in order to validate prefix and permissions, and then if everything is right, call the original s3policy. For example:
+<code>
+    url(r'^userprofile/s3policy/$', 'accounts.views.userprofile_s3policy', {}, name='s3policy' ),
+    url(r'^skin/(?P<pk>add)/s3policy/$', 'accounts.views.skin_s3policy', {}, name='s3policy' ),
+    url(r'^skin/(?P<pk>\d+)/add/s3policy/$', 'accounts.views.skin_s3policy', {}, name='s3policy' ),
 <code>
 @login_required
-def s3policy(request, prefix):
-    if int(prefix) != request.user.id:
-        return HttpResponseBadRequest('prefix must match the user id')
-    return s3mixin.views.s3policy(request, prefix)
+def skin_s3policy(request, pk):
+    ret = s3mixin.views.s3policy(request, 'accounts/skin/%s' % (request.user.id))
+    skin = Skin() if pk=='add' else Skin.objects.get(id=pk)
+    skin.file = settings.AWS_PREFIX + ret.filename
+    skin.name = os.path.splitext(os.path.basename(ret.filename))[0].lower()
+    skin.user = request.user
+    skin.save()
+    return ret
+
+@login_required
+def userprofile_s3policy(request):
+    ret = s3mixin.views.s3policy(request, 'accounts/userprofile/%s' % (request.user.id) )
+    profile = request.user.get_profile()
+    profile.file = settings.AWS_PREFIX + ret.filename
+    profile.save()
+    return ret
 </code>
 Example prefix might be a blog/forum id that the user has permission to.
 A simplistic prefix might be the user-id to which the file will be linked to.
@@ -58,18 +59,27 @@ AWS_MAX_FILE_SIZE = '10MB'
 AWS_BUCKET = 'dev-bucket' if not on_production_server else 'prod-bucket'
 AWS_PREFIX = 'http://%s.s3.amazonaws.com/' % (AWS_BUCKET)
 AWS_CLOUDFRONT = 'http://%s.my-cloudfront.com/' % AWS_BUCKET # Your CNAME for Cloudfront
+# THUMBNAIL_SERVICE = 'http://thumbnail-service.appspot.com/'
 </code>
+
+THUMBNAIL_SERVICE may be used in conjuction with https://github.com/burgalon/thumbnail-service to generate thumbnails at any size on the fly. Another suggestion is to use a proxy cache to avoid generating those thumbnails on every request - https://github.com/burgalon/SymPullCDN
 
 # Add crossdomain.xml to your AWS_BUCKET of the sort:
 <cross-domain-policy>
     <allow-access-from domain="*" secure="false"/>
 </cross-domain-policy>
 
+Also suggested is to set a robots.txt blocking crawlers from scanning the buckets.
+
 Finally, when you think all setup is done, run the page through a browser, make sure that the widget's javascript is rendering, and that nothing fails on the javascript
+
 h2. Comments
 
-# Notice that the code has <code>resize : {width : 1920, height : 1080, quality : 90}</code> which means that all uploaded JPG/PNG will be resized if larger than 1920x1080. This seems reasonable with our current global standards.
+# Notice that the code has <code>resize : {width : 1920, height : 1080, quality : 90}</code> which means that all uploaded JPG/PNG will be resized if larger than 1920x1080. This seems reasonable with our current global standards. Resizing photos disables progress reporting in Flash
 # S3Mixin has SERVER_TYPES attribute which allows setting file types which you might want to store on the server side (to allow reading the file directly from DB and not through S3). Currently it's set to HTML files. You might want to change this.
 # Currently only the Flash runtime of Plupload is being used in order to keep things consistent and stable. S3 requires cross-domain upload and passing multi-part consistently in order to match the signature. Some of the runtimes are not passing the same parameters exactly as the Flash runtime and might require some tweaking in order to work.
 # Files are uploaded with some 'id' prefix which you should provide to S3FileWidget (for example, the parent model id) and a timestamp for cache busting. S3 uploads
 # Feel free to fork and help to turn this into a pluggable app which is generic enough
+
+h2. Example
+You can see a working example on http://www.boorgle.com/

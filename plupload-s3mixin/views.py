@@ -69,4 +69,6 @@ def s3policy(request, prefix):
     if filename.lower().endswith('jpg') or filename.lower().endswith('png'):
         response['Filename'] = filename
 
-    return JSONResponse(response)
+    json_response = JSONResponse(response)
+    json_response.filename = key
+    return json_response
