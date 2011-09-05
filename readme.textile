@@ -17,6 +17,9 @@ h2. Installation
     url(r'^userprofile/s3policy/$', 'accounts.views.userprofile_s3policy', {}, name='s3policy' ),
     url(r'^skin/(?P<pk>add)/s3policy/$', 'accounts.views.skin_s3policy', {}, name='s3policy' ),
     url(r'^skin/(?P<pk>\d+)/add/s3policy/$', 'accounts.views.skin_s3policy', {}, name='s3policy' ),
+</code>
+
+# Add in your views.py
 <code>
 @login_required
 def skin_s3policy(request, pk):
@@ -47,7 +50,7 @@ You may use the GET['file_size'] to create a more robust logic for upload size l
 <script type="text/javascript" src="{% media_url 'js/plupload/plupload.full.min.js' %}"></script>
 <script type="text/javascript" src="{% media_url 'plupload-s3.js' %}"></script>
 <script type="text/javascript">
-    {{ profile_form.fields.file.widget.javascript }}
+    {{ form.fields.file.widget.javascript }}
 </script>
 </code>
 
@@ -79,8 +82,8 @@ h2. Comments
 # Notice that the code has <code>resize : {width : 1920, height : 1080, quality : 90}</code> which means that all uploaded JPG/PNG will be resized if larger than 1920x1080. This seems reasonable with our current global standards. Resizing photos disables progress reporting in Flash
 # S3Mixin has SERVER_TYPES attribute which allows setting file types which you might want to store on the server side (to allow reading the file directly from DB and not through S3). Currently it's set to HTML files. You might want to change this.
 # Currently only the Flash runtime of Plupload is being used in order to keep things consistent and stable. S3 requires cross-domain upload and passing multi-part consistently in order to match the signature. Some of the runtimes are not passing the same parameters exactly as the Flash runtime and might require some tweaking in order to work.
-# Files are uploaded with some 'id' prefix which you should provide to S3FileWidget (for example, the parent model id) and a timestamp for cache busting. S3 uploads
 # Feel free to fork and help to turn this into a pluggable app which is generic enough
 
 h2. Example
-You can see a working example on http://www.boorgle.com/
+
+You can see a working example on "www.boorgle.com":http://www.boorgle.com/
