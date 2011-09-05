@@ -199,22 +199,25 @@ class S3Mixin(models.Model):
     def get_file(self):
         file = self.file
         if settings.AWS_CLOUDFRONT and file:
-            # Just to ease on crc32, let's trim the file name
-            i = zlib.crc32(file[len(settings.AWS_PREFIX):]) % 6 + 1
             file = self.file.replace(settings.AWS_PREFIX, settings.AWS_CLOUDFRONT)
-            return file.replace('http://', 'http://m%s.' % i)
+            if settings.AWS_DNS_ROTATOR:
+                # Just to ease on crc32, let's trim the file name
+                i = zlib.crc32(file[len(settings.AWS_PREFIX):]) % settings.AWS_DNS_ROTATOR + 1
+                file = file.replace('http://', 'http://m%s.' % i)
         return file
 
     def get_file_thumb(self):
         url = self.file
         w, h = self.size()
         if (w or h) and url:
-            # Just to ease on crc32, let's trim the file name
-            i = zlib.crc32(url[len(settings.AWS_PREFIX):]) % 6 + 1
             url = url.replace(settings.AWS_PREFIX, '%s%sx%s/' % (settings.THUMBNAIL_SERVICE, w or 0,h or 0))
             if not settings.ON_PRODUCTION_SERVER:
                 url = '%s?domain=%s' % (url, settings.AWS_PREFIX[7:-1])
-            return url.replace('http://', 'http://m%s.' % i)
+            if setings.AWS_DNS_ROTATOR:
+                # Just to ease on crc32, let's trim the file name
+                i = zlib.crc32(url[len(settings.AWS_PREFIX):]) % ( settings.AWS_DNS_ROTATOR + 1)
+                url = url.replace('http://', 'http://m%s.' % i)
+            return url
         else:
             return self.get_file()
 

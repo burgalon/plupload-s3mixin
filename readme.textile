@@ -59,7 +59,8 @@ AWS_MAX_FILE_SIZE = '10MB'
 AWS_BUCKET = 'dev-bucket' if not on_production_server else 'prod-bucket'
 AWS_PREFIX = 'http://%s.s3.amazonaws.com/' % (AWS_BUCKET)
 AWS_CLOUDFRONT = 'http://%s.my-cloudfront.com/' % AWS_BUCKET # Your CNAME for Cloudfront
-# THUMBNAIL_SERVICE = 'http://thumbnail-service.appspot.com/'
+# AWS_DNS_ROTATOR = 6 # Determines if CLOUDFRONT urls will be prefixed by m1.my-cloudfront.com, m2.my-cloudfront.com ....
+# THUMBNAIL_SERVICE = 'http://d2e9m6sll3dt8o.cloudfront.net/' if on_production_server else 'http://1linedev.thumbnail-service.appspot.com/'
 </code>
 
 THUMBNAIL_SERVICE may be used in conjuction with https://github.com/burgalon/thumbnail-service to generate thumbnails at any size on the fly. Another suggestion is to use a proxy cache to avoid generating those thumbnails on every request - https://github.com/burgalon/SymPullCDN
