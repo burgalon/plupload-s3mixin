@@ -86,4 +86,4 @@ h2. Comments
 
 h2. Example
 
-You can see a working example on "www.boorgle.com":http://www.boorgle.com/
+You can see a working example on "www.boorgle.com":http://www.boorgle.com/ in the edit profile page after you're registered
