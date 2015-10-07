@@ -66,7 +66,7 @@ AWS_CLOUDFRONT = 'http://%s.my-cloudfront.com/' % AWS_BUCKET # Your CNAME for Cl
 # THUMBNAIL_SERVICE = 'http://d2e9m6sll3dt8o.cloudfront.net/' if on_production_server else 'http://1linedev.thumbnail-service.appspot.com/'
 </code>
 
-THUMBNAIL_SERVICE may be used in conjuction with https://github.com/burgalon/thumbnail-service to generate thumbnails at any size on the fly. Another suggestion is to use a proxy cache to avoid generating those thumbnails on every request - https://github.com/burgalon/SymPullCDN
+THUMBNAIL_SERVICE may be used in conjunction with https://github.com/burgalon/thumbnail-service to generate thumbnails at any size on the fly. Another suggestion is to use a proxy cache to avoid generating those thumbnails on every request - https://github.com/burgalon/SymPullCDN
 
 # Add crossdomain.xml to your AWS_BUCKET of the sort:
 <cross-domain-policy>
